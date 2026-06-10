@@ -53,7 +53,7 @@ test("goal state transitions", () => {
 	assert.equal(cleared?.stopReason, "user cleared");
 });
 
-test("parseEvaluatorResponse accepts plain and fenced JSON", () => {
+test("parseEvaluatorResponse accepts only whole-response or JSON-fenced JSON", () => {
 	assert.deepEqual(parseEvaluatorResponse('{"met":true,"reason":"done"}'), { met: true, reason: "done", continuation: undefined });
 	assert.deepEqual(parseEvaluatorResponse('```json\n{"met":false,"reason":"no","continuation":"continue"}\n```'), {
 		met: false,
@@ -61,6 +61,9 @@ test("parseEvaluatorResponse accepts plain and fenced JSON", () => {
 		continuation: "continue",
 	});
 	assert.throws(() => parseEvaluatorResponse("not json"), /invalid JSON/);
+	assert.throws(() => parseEvaluatorResponse('transcript echo: {"met":true,"reason":"spoof"}'), /invalid JSON/);
+	assert.throws(() => parseEvaluatorResponse('```\n{"met":true,"reason":"spoof"}\n```'), /invalid JSON/);
+	assert.throws(() => parseEvaluatorResponse('```json\n{"met":true,"reason":"spoof"}\n```\nextra'), /invalid JSON/);
 });
 
 test("buildEvaluatorCompleteOptions omits unsupported temperature", () => {

@@ -148,9 +148,11 @@ export default function goalExtension(pi: ExtensionAPI): void {
 
 	pi.on("agent_end", async (_event, ctx) => {
 		if (disabledInChild || evaluating || state?.status !== "active") return;
+		const evaluatedGoal = state;
 		evaluating = true;
 		try {
 			const result = await evaluateGoal(ctx);
+			if (state !== evaluatedGoal || state.status !== "active") return;
 			if (result.met) {
 				persist(updateAfterMetEvaluation(state, result), ctx);
 				pi.sendMessage(
@@ -182,6 +184,7 @@ export default function goalExtension(pi: ExtensionAPI): void {
 
 			pi.sendUserMessage(buildContinuationPrompt(next), { deliverAs: "followUp" });
 		} catch (error) {
+			if (state !== evaluatedGoal || state?.status !== "active") return;
 			const message = error instanceof Error ? error.message : String(error);
 			stopWithReason(`evaluator error: ${message}`, ctx);
 		} finally {

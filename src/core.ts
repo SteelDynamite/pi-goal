@@ -307,10 +307,8 @@ export function serializeTranscript(entries: readonly SessionEntry[], charLimit 
 }
 
 function extractJsonObject(text: string): string {
-	const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+	const trimmed = text.trim();
+	const fenced = trimmed.match(/^```json\s*([\s\S]*?)\s*```$/i);
 	if (fenced) return fenced[1].trim();
-	const start = text.indexOf("{");
-	const end = text.lastIndexOf("}");
-	if (start >= 0 && end > start) return text.slice(start, end + 1).trim();
-	return text.trim();
+	return trimmed;
 }
