@@ -6,6 +6,7 @@ export const GOAL_CONTEXT_MESSAGE = "goal-context";
 export const GOAL_STATUS_MESSAGE = "goal-status";
 export const GOAL_EVALUATION_MESSAGE = "goal-evaluation";
 export const DEFAULT_MAX_EVALUATIONS = 25;
+export const EVALUATOR_MAX_TOKENS = 2000;
 export const MAX_CONDITION_CHARS = 4000;
 export const TRANSCRIPT_CHAR_LIMIT = 24000;
 
@@ -236,6 +237,15 @@ export function extractEvaluatorText(response: Pick<AssistantMessage, "content" 
 		`Evaluator model returned no text to parse (stopReason: ${response.stopReason}; content blocks: ${blockTypes}). ` +
 			"Try again, reduce reasoning, or switch to a current model that returns text for evaluator JSON.",
 	);
+}
+
+export function buildEvaluatorCompleteOptions(apiKey: string | undefined, headers: Record<string, string> | undefined, signal: AbortSignal | undefined) {
+	return {
+		apiKey,
+		headers,
+		signal,
+		maxTokens: EVALUATOR_MAX_TOKENS,
+	};
 }
 
 export function parseEvaluatorResponse(text: string): EvaluatorResult {

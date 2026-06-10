@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
 	buildContinuationPrompt,
+	buildEvaluatorCompleteOptions,
 	buildEvaluatorPrompt,
 	buildGoalContext,
 	clearGoal,
 	createActiveGoal,
 	DEFAULT_MAX_EVALUATIONS,
+	EVALUATOR_MAX_TOKENS,
 	extractEvaluatorText,
 	formatGoalStatus,
 	GOAL_STATE_ENTRY,
@@ -59,6 +61,14 @@ test("parseEvaluatorResponse accepts plain and fenced JSON", () => {
 		continuation: "continue",
 	});
 	assert.throws(() => parseEvaluatorResponse("not json"), /invalid JSON/);
+});
+
+test("buildEvaluatorCompleteOptions omits unsupported temperature", () => {
+	const options = buildEvaluatorCompleteOptions("key", { header: "value" }, undefined);
+	assert.equal(options.maxTokens, EVALUATOR_MAX_TOKENS);
+	assert.equal(options.apiKey, "key");
+	assert.deepEqual(options.headers, { header: "value" });
+	assert.equal("temperature" in options, false);
 });
 
 test("extractEvaluatorText reports model errors and empty text", () => {

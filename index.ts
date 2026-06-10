@@ -2,6 +2,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { complete, type Message } from "@earendil-works/pi-ai";
 import {
 	buildContinuationPrompt,
+	buildEvaluatorCompleteOptions,
 	buildEvaluatorPrompt,
 	buildEvaluatorSystemPrompt,
 	buildGoalContext,
@@ -93,13 +94,7 @@ export default function goalExtension(pi: ExtensionAPI): void {
 				systemPrompt: buildEvaluatorSystemPrompt(),
 				messages: [userMessage],
 			},
-			{
-				apiKey: auth.apiKey,
-				headers: auth.headers,
-				signal: ctx.signal,
-				maxTokens: 2000,
-				temperature: 0,
-			},
+			buildEvaluatorCompleteOptions(auth.apiKey, auth.headers, ctx.signal),
 		);
 		return parseEvaluatorResponse(extractEvaluatorText(response));
 	}
