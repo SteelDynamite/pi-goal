@@ -7,6 +7,7 @@ import {
 	clearGoal,
 	createActiveGoal,
 	DEFAULT_MAX_EVALUATIONS,
+	extractEvaluatorText,
 	formatGoalStatus,
 	GOAL_STATE_ENTRY,
 	isSubprocessChild,
@@ -58,6 +59,28 @@ test("parseEvaluatorResponse accepts plain and fenced JSON", () => {
 		continuation: "continue",
 	});
 	assert.throws(() => parseEvaluatorResponse("not json"), /invalid JSON/);
+});
+
+test("extractEvaluatorText reports model errors and empty text", () => {
+	assert.equal(
+		extractEvaluatorText({
+			content: [{ type: "text", text: "  {\"met\":true,\"reason\":\"done\"}  " }],
+			stopReason: "stop",
+		}),
+		'{"met":true,"reason":"done"}',
+	);
+	assert.throws(
+		() => extractEvaluatorText({ content: [], stopReason: "error", errorMessage: "upstream failed" }),
+		/Evaluator model error: upstream failed/,
+	);
+	assert.throws(
+		() =>
+			extractEvaluatorText({
+				content: [{ type: "thinking", thinking: "", thinkingSignature: "opaque" }],
+				stopReason: "stop",
+			}),
+		/no text to parse \(stopReason: stop; content blocks: thinking\)/,
+	);
 });
 
 test("latestGoalState returns newest valid custom state", () => {

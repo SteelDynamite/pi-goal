@@ -219,6 +219,25 @@ export function buildEvaluatorPrompt(state: GoalState, entries: readonly Session
 	].join("\n");
 }
 
+export function extractEvaluatorText(response: Pick<AssistantMessage, "content" | "stopReason" | "errorMessage">): string {
+	if (response.stopReason === "error" || response.stopReason === "aborted") {
+		throw new Error(`Evaluator model ${response.stopReason}: ${response.errorMessage || "no error message provided"}`);
+	}
+
+	const text = response.content
+		.filter((item): item is TextContent => item.type === "text")
+		.map((item) => item.text)
+		.join("\n")
+		.trim();
+	if (text) return text;
+
+	const blockTypes = response.content.map((item) => item.type).join(", ") || "none";
+	throw new Error(
+		`Evaluator model returned no text to parse (stopReason: ${response.stopReason}; content blocks: ${blockTypes}). ` +
+			"Try again, reduce reasoning, or switch to a current model that returns text for evaluator JSON.",
+	);
+}
+
 export function parseEvaluatorResponse(text: string): EvaluatorResult {
 	const jsonText = extractJsonObject(text);
 	let parsed: unknown;

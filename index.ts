@@ -1,5 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { complete, type Message, type TextContent } from "@earendil-works/pi-ai";
+import { complete, type Message } from "@earendil-works/pi-ai";
 import {
 	buildContinuationPrompt,
 	buildEvaluatorPrompt,
@@ -8,6 +8,7 @@ import {
 	buildInitialGoalPrompt,
 	clearGoal,
 	createActiveGoal,
+	extractEvaluatorText,
 	formatGoalStatus,
 	GOAL_EVALUATION_MESSAGE,
 	GOAL_STATE_ENTRY,
@@ -96,15 +97,11 @@ export default function goalExtension(pi: ExtensionAPI): void {
 				apiKey: auth.apiKey,
 				headers: auth.headers,
 				signal: ctx.signal,
-				maxTokens: 800,
+				maxTokens: 2000,
 				temperature: 0,
 			},
 		);
-		const text = response.content
-			.filter((item): item is TextContent => item.type === "text")
-			.map((item) => item.text)
-			.join("\n");
-		return parseEvaluatorResponse(text);
+		return parseEvaluatorResponse(extractEvaluatorText(response));
 	}
 
 	pi.registerCommand("goal", {
@@ -205,6 +202,7 @@ export default function goalExtension(pi: ExtensionAPI): void {
 export const __test__ = {
 	parseGoalArgs,
 	parseEvaluatorResponse,
+	extractEvaluatorText,
 	buildEvaluatorPrompt,
 	formatGoalStatus,
 	createActiveGoal,
