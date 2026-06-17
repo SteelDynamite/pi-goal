@@ -1,5 +1,5 @@
 import type { AssistantMessage, Message, TextContent, ToolCall, ToolResultMessage, UserMessage } from "@earendil-works/pi-ai";
-import type { SessionEntry } from "@earendil-works/pi-coding-agent";
+import type { SessionEntry } from "./pi-types.ts";
 
 export const GOAL_STATE_ENTRY = "goal-state";
 export const GOAL_CONTEXT_MESSAGE = "goal-context";

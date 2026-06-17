@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "./src/pi-types.ts";
 import { complete, type Message } from "@earendil-works/pi-ai";
 import {
 	buildContinuationPrompt,

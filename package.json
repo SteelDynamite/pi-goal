@@ -30,12 +30,10 @@
     "validate": "npm run typecheck && npm test && npm run test:pack"
   },
   "peerDependencies": {
-    "@earendil-works/pi-ai": "*",
-    "@earendil-works/pi-coding-agent": "*"
+    "@earendil-works/pi-ai": "*"
   },
   "devDependencies": {
     "@earendil-works/pi-ai": "*",
-    "@earendil-works/pi-coding-agent": "*",
     "@types/node": "^24.0.0",
     "typescript": "^5.9.0"
   }
