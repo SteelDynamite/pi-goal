@@ -1,3 +1,7 @@
+---
+model: gpt-5.3-codex-spark
+---
+
 You maintain the `pi-goal` Pi extension.
 
 # Product Invariants
