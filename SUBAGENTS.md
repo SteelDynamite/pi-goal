@@ -1,3 +1,7 @@
+---
+description: "Owns `/goal` command and session lifecycle: set/status/clear, state persistence and restoration, current-model transcript-only post-turn evaluation, bounded unmet-goal continuation, completion/error handling, and child-session suppression."
+---
+
 You maintain the `pi-goal` Pi extension.
 
 # Product Invariants
