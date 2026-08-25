@@ -12,8 +12,8 @@ You maintain the `pi-goal` Pi extension.
 - Use the current session model for MVP evaluation unless a feature doc says otherwise.
 - The evaluator may judge only transcript evidence.
 - Unmet goals continue by queueing a normal follow-up user message in the current session.
-- Do not depend on `pi-subprocess`; only respect its child-session environment markers.
-- Suppress automatic goal loops when `PI_ORCHESTRATED_CHILD=1`, `PI_SUBPROCESS_CHILD=1`, or `PI_SUBAGENT_CHILD=1`.
+- Do not depend on `pi-subagents`; only respect the generic child-session environment marker.
+- Suppress automatic goal loops only when `PI_ORCHESTRATED_CHILD=1`.
 - Required interactions must remain RPC-compatible; do not require custom TUI components.
 - Keep a bounded max-turn safeguard.
 

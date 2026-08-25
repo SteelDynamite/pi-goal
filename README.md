@@ -53,11 +53,11 @@ By default, a goal stops after 25 evaluated turns. Include an explicit bound to 
 /goal npm test exits 0 or stop after 10 turns
 ```
 
-## Resume and subprocesses
+## Resume and child sessions
 
 Active goals restore with the session. Achieved or cleared goals remain as history but do not restart.
 
-Automatic goal behavior is disabled in orchestrated subprocess child sessions marked by Pi subprocess environment variables.
+Automatic goal behavior is disabled when `PI_ORCHESTRATED_CHILD=1`.
 
 ## Development
 

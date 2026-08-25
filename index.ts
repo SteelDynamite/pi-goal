@@ -15,7 +15,7 @@ import {
 	GOAL_STATE_ENTRY,
 	GOAL_STATUS_MESSAGE,
 	hasReachedMaxEvaluations,
-	isSubprocessChild,
+	isOrchestratedChild,
 	latestGoalState,
 	parseEvaluatorResponse,
 	parseGoalArgs,
@@ -28,7 +28,7 @@ import {
 export default function goalExtension(pi: ExtensionAPI): void {
 	let state: GoalState | undefined;
 	let evaluating = false;
-	const disabledInChild = isSubprocessChild();
+	const disabledInOrchestratedChild = isOrchestratedChild();
 
 	function branchState(ctx: ExtensionContext): GoalState | undefined {
 		return latestGoalState(ctx.sessionManager.getBranch());
@@ -41,7 +41,7 @@ export default function goalExtension(pi: ExtensionAPI): void {
 	}
 
 	function updateStatus(ctx: ExtensionContext): void {
-		if (disabledInChild) {
+		if (disabledInOrchestratedChild) {
 			ctx.ui.setStatus("goal", undefined);
 			return;
 		}
@@ -102,11 +102,11 @@ export default function goalExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("goal", {
 		description: "Set, show, or clear a session goal that auto-continues until met",
 		handler: async (args, ctx) => {
-			if (disabledInChild) {
+			if (disabledInOrchestratedChild) {
 				pi.sendMessage(
 					{
 						customType: GOAL_STATUS_MESSAGE,
-						content: "/goal is disabled in subprocess child sessions.",
+						content: "/goal is disabled in orchestrated child sessions.",
 						display: true,
 					},
 					{ triggerTurn: false },
@@ -134,20 +134,20 @@ export default function goalExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.on("session_start", async (_event, ctx) => {
-		state = disabledInChild ? undefined : branchState(ctx);
+		state = disabledInOrchestratedChild ? undefined : branchState(ctx);
 		if (state?.status !== "active") state = state?.status === "achieved" || state?.status === "cleared" ? state : undefined;
 		updateStatus(ctx);
 	});
 
 	pi.on("before_agent_start", async (event, _ctx) => {
-		if (disabledInChild || state?.status !== "active") return;
+		if (disabledInOrchestratedChild || state?.status !== "active") return;
 		return {
 			systemPrompt: `${event.systemPrompt}\n\n${buildGoalContext(state)}`,
 		};
 	});
 
 	pi.on("agent_end", async (_event, ctx) => {
-		if (disabledInChild || evaluating || state?.status !== "active") return;
+		if (disabledInOrchestratedChild || evaluating || state?.status !== "active") return;
 		const evaluatedGoal = state;
 		evaluating = true;
 		try {
@@ -205,5 +205,5 @@ export const __test__ = {
 	formatGoalStatus,
 	createActiveGoal,
 	clearGoal,
-	isSubprocessChild,
+	isOrchestratedChild,
 };

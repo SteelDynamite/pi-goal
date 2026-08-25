@@ -12,7 +12,7 @@ import {
 	extractEvaluatorText,
 	formatGoalStatus,
 	GOAL_STATE_ENTRY,
-	isSubprocessChild,
+	isOrchestratedChild,
 	latestGoalState,
 	parseEvaluatorResponse,
 	parseGoalArgs,
@@ -142,9 +142,8 @@ test("prompts include goal and evaluator context", () => {
 	assert.match(formatGoalStatus(state, 3000), /Evaluated turns: 1/);
 });
 
-test("isSubprocessChild recognizes current and legacy markers", () => {
-	assert.equal(isSubprocessChild({}), false);
-	assert.equal(isSubprocessChild({ PI_ORCHESTRATED_CHILD: "1" }), true);
-	assert.equal(isSubprocessChild({ PI_SUBPROCESS_CHILD: "1" }), true);
-	assert.equal(isSubprocessChild({ PI_SUBAGENT_CHILD: "1" }), true);
+test("isOrchestratedChild recognizes only PI_ORCHESTRATED_CHILD=1", () => {
+	assert.equal(isOrchestratedChild({}), false);
+	assert.equal(isOrchestratedChild({ PI_ORCHESTRATED_CHILD: "1" }), true);
+	assert.equal(isOrchestratedChild({ PI_ORCHESTRATED_CHILD: "0" }), false);
 });

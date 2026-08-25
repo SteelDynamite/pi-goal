@@ -33,8 +33,8 @@ export type EvaluatorResult = {
 	continuation?: string;
 };
 
-export function isSubprocessChild(env: NodeJS.ProcessEnv = process.env): boolean {
-	return env.PI_ORCHESTRATED_CHILD === "1" || env.PI_SUBPROCESS_CHILD === "1" || env.PI_SUBAGENT_CHILD === "1";
+export function isOrchestratedChild(env: NodeJS.ProcessEnv = process.env): boolean {
+	return env.PI_ORCHESTRATED_CHILD === "1";
 }
 
 export function parseGoalArgs(args: string):
