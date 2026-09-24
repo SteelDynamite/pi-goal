@@ -39,9 +39,10 @@ Clear aliases: `stop`, `off`, `reset`, `none`, `cancel`.
 ## Behavior
 
 - One active goal is allowed per session.
-- Setting a goal starts work immediately.
-- After each agent turn, the extension asks the current model to evaluate whether the transcript proves the goal is met.
-- If unmet, the extension sends a follow-up message with evaluator guidance.
+- Setting a goal appends one immutable goal-context message and starts work immediately without changing the system prompt.
+- After each completed agent turn, the extension asks the current model to evaluate whether non-supervisor transcript evidence proves the goal is met.
+- If the main request or evaluator is aborted, the goal remains active and resumable without evaluation.
+- If unmet, the extension atomically appends evaluator guidance and requests one boundary continuation.
 - If met, the extension records the goal as achieved and stops looping.
 - The evaluator cannot run tools; the agent must surface evidence such as test output, build results, or file counts.
 
@@ -55,7 +56,7 @@ By default, a goal stops after 25 evaluated turns. Include an explicit bound to 
 
 ## Resume and child sessions
 
-Active goals restore with the session. Achieved or cleared goals remain as history but do not restart.
+Active goals restore with the session. Successful compaction restores a missing immutable context marker before the next request without starting a turn; a legacy resumed session restores it when work next starts. Restoration does not duplicate a surviving marker. Achieved or cleared goals remain as history but do not restart.
 
 Automatic goal behavior is disabled when `PI_ORCHESTRATED_CHILD=1`.
 

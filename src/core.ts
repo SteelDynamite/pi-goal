@@ -1,10 +1,11 @@
-import type { AssistantMessage, Message, TextContent, ToolCall, ToolResultMessage, UserMessage } from "@earendil-works/pi-ai";
-import type { SessionEntry } from "./pi-types.ts";
+import type { AssistantMessage, TextContent, ToolCall } from "@earendil-works/pi-ai";
+import type { SessionEntry, SessionMessage } from "./pi-types.ts";
 
 export const GOAL_STATE_ENTRY = "goal-state";
 export const GOAL_CONTEXT_MESSAGE = "goal-context";
 export const GOAL_STATUS_MESSAGE = "goal-status";
 export const GOAL_EVALUATION_MESSAGE = "goal-evaluation";
+export const GOAL_CONTINUATION_PREFIX = "[GOAL SUPERVISOR CONTINUATION]";
 export const DEFAULT_MAX_EVALUATIONS = 25;
 export const EVALUATOR_MAX_TOKENS = 2000;
 export const MAX_CONDITION_CHARS = 4000;
@@ -159,32 +160,32 @@ export function formatDuration(ms: number): string {
 }
 
 export function buildGoalContext(state: GoalState): string {
-	const lines = [
+	return [
 		"[GOAL ACTIVE]",
 		"Continue working until this completion condition is demonstrably met.",
 		"Surface evidence in the transcript, because the evaluator cannot run tools or inspect files independently.",
 		"",
 		"Goal condition:",
 		state.condition,
-	];
-	if (state.lastReason) {
-		lines.push("", "Latest evaluator reason:", state.lastReason);
-	}
-	return lines.join("\n");
+	].join("\n");
 }
 
-export function buildInitialGoalPrompt(condition: string): string {
-	return [
-		"Work until this goal is met. Surface concrete evidence for completion in your responses.",
-		"",
-		"Goal condition:",
-		condition,
-	].join("\n");
+export function hasGoalContextMessage(state: GoalState, messages: readonly SessionMessage[]): boolean {
+	return messages.some(
+		(message) =>
+			message.role === "custom" &&
+			message.customType === GOAL_CONTEXT_MESSAGE &&
+			message.content === buildGoalContext(state) &&
+			"details" in message &&
+			isRecord(message.details) &&
+			message.details.goalStartedAt === state.startedAt,
+	);
 }
 
 export function buildContinuationPrompt(state: GoalState): string {
 	const guidance = state.lastContinuation || state.lastReason || "The goal is not met yet.";
 	return [
+		GOAL_CONTINUATION_PREFIX,
 		"Continue working toward the active /goal.",
 		"Surface concrete evidence for completion in the transcript.",
 		"",
@@ -208,16 +209,7 @@ export function buildEvaluatorSystemPrompt(): string {
 }
 
 export function buildEvaluatorPrompt(state: GoalState, entries: readonly SessionEntry[]): string {
-	return [
-		"Goal condition:",
-		state.condition,
-		"",
-		"Previous evaluator reason:",
-		state.lastReason || "(none)",
-		"",
-		"Transcript evidence:",
-		serializeTranscript(entries, TRANSCRIPT_CHAR_LIMIT),
-	].join("\n");
+	return ["Goal condition:", state.condition, "", "Transcript evidence:", serializeTranscript(entries, TRANSCRIPT_CHAR_LIMIT)].join("\n");
 }
 
 export function extractEvaluatorText(response: Pick<AssistantMessage, "content" | "stopReason" | "errorMessage">): string {
@@ -239,12 +231,12 @@ export function extractEvaluatorText(response: Pick<AssistantMessage, "content" 
 	);
 }
 
-export function buildEvaluatorCompleteOptions(apiKey: string | undefined, headers: Record<string, string> | undefined, signal: AbortSignal | undefined) {
+export function buildEvaluatorCompleteOptions(signal: AbortSignal | undefined, sessionId: string) {
 	return {
-		apiKey,
-		headers,
 		signal,
 		maxTokens: EVALUATOR_MAX_TOKENS,
+		cacheRetention: "short" as const,
+		sessionId: `${sessionId}:pi-goal-evaluator`,
 	};
 }
 
@@ -275,35 +267,107 @@ export function assistantText(message: AssistantMessage): string {
 		.trim();
 }
 
-export function messageText(message: Message): string {
-	if (message.role === "user") return userText(message);
-	if (message.role === "assistant") return assistantText(message);
-	return toolResultText(message);
+export function messageText(message: SessionMessage): string {
+	switch (message.role) {
+		case "system":
+			return "";
+		case "user": {
+			const text = contentText(message.content);
+			return text.startsWith(GOAL_CONTINUATION_PREFIX) ? "" : text;
+		}
+		case "toolResult":
+		case "custom":
+			return contentText(message.content);
+		case "assistant":
+			return assistantContentText(message.content);
+		case "bashExecution":
+			if (message.excludeFromContext === true) return "";
+			return [`$ ${message.command}`, message.output].filter(Boolean).join("\n");
+		case "branchSummary":
+		case "compactionSummary":
+			return message.summary;
+		default:
+			return exhaustiveMessage(message);
+	}
 }
 
-function userText(message: UserMessage): string {
-	if (typeof message.content === "string") return message.content;
-	return message.content.map((item) => (item.type === "text" ? item.text : "[image]")).join("\n");
+function assistantContentText(content: unknown): string {
+	if (!Array.isArray(content)) return "";
+	return content
+		.map((item) => {
+			if (!isRecord(item)) return "";
+			if (item.type === "text" && typeof item.text === "string") return item.text;
+			if (item.type === "toolCall" && typeof item.name === "string") return `[tool call: ${item.name}]`;
+			return "";
+		})
+		.filter(Boolean)
+		.join("\n")
+		.trim();
 }
 
-function toolResultText(message: ToolResultMessage): string {
-	return message.content.map((item) => (item.type === "text" ? item.text : "[image]")).join("\n");
+function contentText(content: unknown): string {
+	if (typeof content === "string") return content;
+	if (!Array.isArray(content)) return "";
+	return content
+		.map((item) => (isRecord(item) && item.type === "text" && typeof item.text === "string" ? item.text : "[image]"))
+		.join("\n");
 }
 
 export function serializeTranscript(entries: readonly SessionEntry[], charLimit = TRANSCRIPT_CHAR_LIMIT): string {
 	const chunks: string[] = [];
 	for (const entry of entries) {
-		if (entry.type === "message") {
-			const text = messageText(entry.message as Message);
-			if (text) chunks.push(`${entry.message.role}: ${text}`);
-		} else if (entry.type === "custom_message" && entry.customType !== GOAL_CONTEXT_MESSAGE) {
-			const content = typeof entry.content === "string" ? entry.content : entry.content.map((item) => (item.type === "text" ? item.text : "[image]")).join("\n");
-			if (content) chunks.push(`custom(${entry.customType}): ${content}`);
+		switch (entry.type) {
+			case "message": {
+				const text = messageText(entry.message);
+				if (text) chunks.push(`${entry.message.role}: ${text}`);
+				break;
+			}
+			case "custom_message": {
+				if (
+					entry.customType === GOAL_CONTEXT_MESSAGE ||
+					entry.customType === GOAL_EVALUATION_MESSAGE ||
+					entry.customType === GOAL_STATUS_MESSAGE
+				) {
+					break;
+				}
+				const content = contentText(entry.content);
+				if (content) chunks.push(`custom(${entry.customType}): ${content}`);
+				break;
+			}
+			case "thinking_level_change":
+			case "model_change":
+			case "usage":
+			case "compaction":
+			case "branch_summary":
+			case "custom":
+			case "context_edit":
+			case "label":
+			case "session_info":
+				break;
+			default:
+				exhaustiveEntry(entry);
 		}
 	}
+
 	const text = chunks.join("\n\n---\n\n");
 	if (text.length <= charLimit) return text;
-	return `[transcript truncated to last ${charLimit} chars]\n${text.slice(-charLimit)}`;
+	if (charLimit <= 0) return "";
+
+	const marker = "\n\n[transcript truncated: middle omitted]\n\n";
+	if (charLimit <= marker.length) return text.slice(-charLimit);
+	const available = charLimit - marker.length;
+	const headLength = Math.floor(available / 3);
+	return text.slice(0, headLength) + marker + text.slice(-(available - headLength));
+}
+
+function exhaustiveMessage(_message: never): string {
+	return "";
+}
+
+function exhaustiveEntry(_entry: never): void {}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return !!value && typeof value === "object";
 }
 
 function extractJsonObject(text: string): string {
