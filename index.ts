@@ -133,15 +133,19 @@ export default function goalExtension(pi: ExtensionAPI): void {
 			const next = createActiveGoal(parsed.condition);
 			persist(next, ctx);
 			pi.sendMessage(goalContextMessage(next), { triggerTurn: false });
+			// The host exposes no dispatch signal/handle: delayed input can outlive clear before a run exists.
+			// Custom triggerTurn delivery is not a substitute: it bypasses input/before_agent_start policy.
 			pi.sendUserMessage(buildContinuationPrompt(next), { deliverAs: "followUp" });
 		},
 	});
 
-	pi.on("session_start", async (_event, ctx) => {
+	function restoreState(_event: unknown, ctx: ExtensionContext): void {
 		state = disabledInOrchestratedChild ? undefined : branchState(ctx);
-		if (state?.status !== "active") state = state?.status === "achieved" || state?.status === "cleared" ? state : undefined;
 		updateStatus(ctx);
-	});
+	}
+
+	pi.on("session_start", restoreState);
+	pi.on("session_tree", restoreState);
 
 	pi.on("before_agent_start", async (_event, ctx) => {
 		if (disabledInOrchestratedChild || state?.status !== "active") return;

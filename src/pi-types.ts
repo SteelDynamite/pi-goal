@@ -61,7 +61,7 @@ export type ExtensionAPI = {
 		name: string,
 		command: { description: string; handler: (args: string, ctx: ExtensionContext) => Promise<void> },
 	): void;
-	on(event: "session_start", handler: (event: unknown, ctx: ExtensionContext) => void | Promise<void>): void;
+	on(event: "session_start" | "session_tree", handler: (event: unknown, ctx: ExtensionContext) => void | Promise<void>): void;
 	on(
 		event: "before_agent_start",
 		handler: (

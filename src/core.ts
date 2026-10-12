@@ -121,9 +121,18 @@ export function isGoalState(value: unknown): value is GoalState {
 		state.version === 1 &&
 		(state.status === "active" || state.status === "achieved" || state.status === "cleared") &&
 		typeof state.condition === "string" &&
-		typeof state.startedAt === "number" &&
-		typeof state.updatedAt === "number" &&
-		typeof state.evaluatedTurns === "number"
+		Number.isFinite(state.startedAt) &&
+		Number.isFinite(state.updatedAt) &&
+		typeof state.evaluatedTurns === "number" &&
+		Number.isSafeInteger(state.evaluatedTurns) &&
+		state.evaluatedTurns >= 0 &&
+		typeof state.maxEvaluations === "number" &&
+		Number.isSafeInteger(state.maxEvaluations) &&
+		// Match the supported 1–999 turn command range; never resume an exhausted budget.
+		state.maxEvaluations >= 1 &&
+		state.maxEvaluations <= 999 &&
+		state.evaluatedTurns <= state.maxEvaluations &&
+		(state.status !== "active" || state.evaluatedTurns < state.maxEvaluations)
 	);
 }
 
@@ -131,7 +140,8 @@ export function latestGoalState(entries: readonly SessionEntry[]): GoalState | u
 	for (let i = entries.length - 1; i >= 0; i--) {
 		const entry = entries[i];
 		if (entry.type !== "custom" || entry.customType !== GOAL_STATE_ENTRY) continue;
-		if (isGoalState(entry.data)) return entry.data;
+		// Invalid newer state must disable supervision, not resurrect an older active goal.
+		return isGoalState(entry.data) ? entry.data : undefined;
 	}
 	return undefined;
 }

@@ -19,6 +19,7 @@ import {
 	GOAL_STATUS_MESSAGE,
 	hasGoalContextMessage,
 	isOrchestratedChild,
+	isGoalState,
 	latestGoalState,
 	parseEvaluatorResponse,
 	parseGoalArgs,
@@ -123,6 +124,40 @@ test("latestGoalState returns newest valid custom state", () => {
 		{ type: "custom", id: "3", parentId: "2", timestamp: "", customType: GOAL_STATE_ENTRY, data: second },
 	] as any[];
 	assert.equal(latestGoalState(entries)?.condition, "second");
+});
+
+test("persisted goal bounds reject invalid limits, counters, and exhausted active goals", () => {
+	const active = createActiveGoal("bounded work", 1);
+	for (const maxEvaluations of [undefined, null, "25", NaN, Infinity, -Infinity, -1, 0, 0.5, 1000, Number.MAX_SAFE_INTEGER]) {
+		assert.equal(isGoalState({ ...active, maxEvaluations }), false, `limit ${String(maxEvaluations)}`);
+	}
+	for (const evaluatedTurns of [undefined, null, "0", NaN, Infinity, -Infinity, -1, 0.5, 25, 26, Number.MAX_SAFE_INTEGER]) {
+		assert.equal(isGoalState({ ...active, evaluatedTurns }), false, `counter ${String(evaluatedTurns)}`);
+	}
+	for (const maxEvaluations of [1, DEFAULT_MAX_EVALUATIONS, 999]) {
+		assert.equal(isGoalState({ ...active, maxEvaluations, evaluatedTurns: maxEvaluations - 1 }), true);
+		for (const status of ["achieved", "cleared"]) {
+			assert.equal(isGoalState({ ...active, status, maxEvaluations, evaluatedTurns: maxEvaluations }), true);
+			assert.equal(isGoalState({ ...active, status, maxEvaluations, evaluatedTurns: maxEvaluations + 1 }), false);
+		}
+	}
+	for (const field of ["startedAt", "updatedAt"]) {
+		assert.equal(isGoalState({ ...active, [field]: NaN }), false);
+		assert.equal(isGoalState({ ...active, [field]: Infinity }), false);
+	}
+});
+
+test("invalid newest goal state never falls back to an older active goal", () => {
+	const active = createActiveGoal("old work", 1);
+	for (const data of [undefined, null, {}, { ...active, maxEvaluations: undefined }, { ...active, version: 2 }]) {
+		const entries = [
+			{ type: "custom", customType: GOAL_STATE_ENTRY, data: active },
+			{ type: "custom", customType: GOAL_STATE_ENTRY, data },
+			{ type: "custom", customType: "other", data: active },
+		] as const;
+		assert.equal(latestGoalState(entries), undefined);
+		assert.equal(latestGoalState([...entries, { type: "custom", customType: GOAL_STATE_ENTRY, data: active }]), active);
+	}
 });
 
 test("transcript serialization omits system entries and retains valid evidence roles", () => {
